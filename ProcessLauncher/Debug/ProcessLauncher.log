@@ -1,4 +1,1 @@
-﻿  Launcher.cpp
-E:\SEM 6\C++\Projects\Project1\ProcessLauncher\ProcessLauncher\Launcher.cpp(328,20): warning C4018:  '<=': signed/unsigned mismatch
-E:\SEM 6\C++\Projects\Project1\ProcessLauncher\ProcessLauncher\Launcher.cpp(63,9): warning C4101:  'ch': unreferenced local variable
-  ProcessLauncher.vcxproj -> E:\SEM 6\C++\Projects\Project1\ProcessLauncher\Debug\ProcessLauncher.exe
+﻿  ProcessLauncher.vcxproj -> E:\SEM 6\C++\Projects\Project1\ProcessLauncher\Debug\ProcessLauncher.exe
