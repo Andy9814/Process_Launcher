@@ -1,7 +1,8 @@
-1,ShellError,
- 1 ,  ShellError, 0 0 default
+1,ShellError,100 10000
+1,ShellError,101 10000
+1,ShellError,102 10000
+4,ShellError,
+ 4 ,  ShellError, 0 0 default
 2,ShellError   ,42
-3,ShellError,43 5000
-4,ShellError,100 2000
-4,ShellError,101 2000
-4,ShellError,102 2000
+3,ShellError,43 10000
+

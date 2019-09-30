@@ -19,16 +19,75 @@ void report() {
 
 
 
+multimap<int, string> parseFile(ifstream &infile) {
+	string line = "";
+	multimap<int, string> dataByMultiMap;
+	while (getline(infile, line)) {
+		int groupKey = 0;
+		int charIndex = 0;
+		int groupNum = 0;
+		bool foundSpace = false;
+		bool removedFirst = false;
+		for (char ch : line)
+		{
+			charIndex++;
+			if (ch != ',' && !isspace(ch)) {
+				groupKey = ch - 48;
+				if (isdigit(ch) && charIndex == 1 && !removedFirst)
+				{
+					groupNum = groupKey;
+					line.erase(line.begin() + 0);
+					dataByMultiMap.insert(pair(groupKey, line));
+					removedFirst = true;
+				}
+				if (isdigit(ch) && foundSpace && !removedFirst) {
+					groupNum = groupKey;
+					line.erase(line.begin(), line.begin() + charIndex);
+					dataByMultiMap.insert(pair(groupKey, line));
+					removedFirst = true;
+				}
+			}
+			else if (ch == ',') {
+			}
+			else {
+				foundSpace = true;
+			}
+		}
+	}
+
+	return dataByMultiMap;
+}
+
+void terminateApplication( PROCESS_INFORMATION &pi) {
+	cout << "Terminate application? (y/n) ";
+	char ch = 'n';
+	//cin >> ch;
+	DWORD exitCode = 0;
+	if (ch == 'y')
+		::TerminateProcess(pi.hProcess, exitCode);
+	else
+	{
+		if (WAIT_FAILED == WaitForSingleObject(pi.hProcess, INFINITE))
+			cerr << "Failure waiting for process to terminate" << endl;
+
+		GetExitCodeProcess(pi.hProcess, &exitCode);
+		//cout << GetExitCodeProcess(pi.hProcess, &exitCode) << endl;
+
+	}
+	cout << "Process terminated with exit code = " << exitCode << endl;
+	CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+}
 
 /** CreateProcess allows full access to the Win32 OS. */
-void launch_using_create_process(wstring command) {
+PROCESS_INFORMATION launch_using_create_process(wstring command) {
 	//wstring application = L"\"C:/windows/notepad\"";
 	//wstring params = L"";
 	//wstring command = application + L" " + params;
 
 	cout << "CreateProcess() launching" << endl;
 
-	STARTUPINFO sinfo = { 0 };
+	STARTUPINFO sinfo = {0};
 	sinfo.cb = sizeof(STARTUPINFO);
 	PROCESS_INFORMATION pi = { 0 };
 	unsigned long const CP_MAX_COMMANDLINE = 32768;
@@ -41,7 +100,7 @@ void launch_using_create_process(wstring command) {
 			NULL,		// same security as parent
 			NULL,
 			false,
-			0,
+			CREATE_NEW_CONSOLE, // create new console
 			NULL,
 			NULL, // same current directory as parent
 			&sinfo,		// startup options
@@ -50,66 +109,51 @@ void launch_using_create_process(wstring command) {
 
 		if (res == 0) {
 			cerr << "Error: " << GetLastError() << endl;
-			return;
+		//	return;
 		}
 
 		delete[] commandline;
 	}
 	catch (std::bad_alloc&) {
 		wcerr << L"Insufficient memory to launch application" << endl;
-		return;
+	//	return;
 	}
 
 
-	cout << "Terminate application? (y/n) ";
-	char ch;
-	cin >> ch;
 	DWORD exitCode = 0;
-	if (ch == 'y')
-		::TerminateProcess(pi.hProcess, exitCode);
-	else
-	{
-		if (WAIT_FAILED == WaitForSingleObject(pi.hProcess, INFINITE))
-			cerr << "Failure waiting for process to terminate" << endl;
-
-		GetExitCodeProcess(pi.hProcess, &exitCode);
-	}
-
+	if (WAIT_FAILED == WaitForSingleObject(pi.hProcess, INFINITE))
+		cerr << "Failure waiting for process to terminate" << endl;
+	GetExitCodeProcess(pi.hProcess, &exitCode);
+	//cout << GetExitCodeProcess(pi.hProcess, &exitCode) << endl;
 	cout << "Process terminated with exit code = " << exitCode << endl;
+	
+	return pi;
 
-	// output times
-	FILETIME creationTime, exitTime, kernelTime, userTime;
-	GetProcessTimes(pi.hProcess, &creationTime, &exitTime, &kernelTime, &userTime);
-	SYSTEMTIME kTime;
-	::FileTimeToSystemTime(&kernelTime, &kTime);
-	cout << "Kernel Time = " << kTime.wHour << ":" << kTime.wMinute << ":" << kTime.wSecond << "." << kTime.wMilliseconds << endl;
 
-	unsigned long long elapsedTicks = *reinterpret_cast<unsigned long long*>(&exitTime) -
-		*reinterpret_cast<unsigned long long*>(&creationTime);
+	//cout << "Process terminated with exit code = " << exitCode << endl;
 
-	cout << "Elapsed Ticks = " << elapsedTicks << endl;
-	cout << "Elapsed Time = " << elapsedTicks / 10000000.0 << endl;
+	////// output times
+	//FILETIME creationTime, exitTime, kernelTime, userTime;
+	//GetProcessTimes(pi.hProcess, &creationTime, &exitTime, &kernelTime, &userTime);
+	//SYSTEMTIME kTime;
+	//::FileTimeToSystemTime(&kernelTime, &kTime);
+	//cout << "Kernel Time = " << kTime.wHour << ":" << kTime.wMinute << ":" << kTime.wSecond << "." << kTime.wMilliseconds << endl;
 
-	CloseHandle(pi.hThread);
-	CloseHandle(pi.hProcess);
+	//unsigned long long elapsedTicks = *reinterpret_cast<unsigned long long*>(&exitTime) -
+	//	*reinterpret_cast<unsigned long long*>(&creationTime);
 
-	cout << "CreateProcess() landing" << endl;
+	//cout << "Elapsed Ticks = " << elapsedTicks << endl;
+	//cout << "Elapsed Time = " << elapsedTicks / 10000000.0 << endl;
+
+	//CloseHandle(pi.hThread);
+	//CloseHandle(pi.hProcess);
+
+	//cout << "CreateProcess() landing" << endl;
 }
-// Function to remove all spaces from a given string 
-string removeSpaces(string str)
-{
-	str.erase(remove(str.begin(), str.end(), ' '), str.end());
-	return str;
-}
+
 int main(int argc, char* argv[]) {
-	// Do the Temp code
-	vector<string> tmpArgs{ "1","mini","200","/n",
-						   "1","Sanndy","207","/n",
-						   "2","Bandy","2400","/n",
-	};
-	vector < pair<int, string> >dataByVector;
 	multimap <int, string> dataByMultiMap;
-	tuple <string, int, int> dataByTuple;
+	map<int, vector<pair<wstring, wstring>>> MapPair;
 	bool checkOut = false;
 	// if Argc.size = 1
 	if (argc > 1) {
@@ -140,184 +184,78 @@ int main(int argc, char* argv[]) {
 	ifstream infile(argv[1]); //open the file
 	if (infile.is_open() && infile.good()) {
 		cout << "File is now open!\nContains:\n";
-		string line = "";
-
-		while (getline(infile, line)) {
-			cout << "line ==== " << line << endl;
-			int groupKey = 0;
-			char ch;
-			//line = removeSpaces(line);
-			stringstream ss(line);
-			int charIndex = 0;
-			int groupNum = 0;
-			bool foundSpace = false;
-			bool removedFirst = false;
-			string storageName;
-
-			/*	while (ss >> storageName) {
-					cout << storageName << endl;
-				}*/
-
-
-			for (char ch : line)
-			{
-				charIndex++;
-				if (ch != ',' && !isspace(ch)) {
-					groupKey = ch - 48;
-					if (isdigit(ch) && charIndex == 1 && !removedFirst)
-					{
-						groupNum = groupKey;
-						//line.erase(std::remove(line.begin(), line.end(), ch), line.end());
-						line.erase(line.begin() + 0);
-						dataByMultiMap.insert(pair(groupKey, line));
-						removedFirst = true;
-					}
-					if (isdigit(ch) && foundSpace && !removedFirst) {
-						groupNum = groupKey;
-						//line.erase(std::remove(line.begin(), line.end(), ch), line.end());
-						line.erase(line.begin(), line.begin() + charIndex);
-						dataByMultiMap.insert(pair(groupKey, line));
-						removedFirst = true;
-
-					}
-
-					storageName += ch;
-
-				}
-				else if (ch == ',') {
-					get<0>(dataByTuple) = storageName;
-					storageName = "";
-
-				}
-				else {
-					foundSpace = true;
-				}
-
-				if (ch == '\n')
-					break;
-
-
-
-			}
-		}
-
+		dataByMultiMap = parseFile(infile);
 	}
 	else {
 		cout << "ERROR:  File \"" << argv[1] << "\"  does not exist.";
 	}
-
-	// could hit break; once all good
-//cout << "Data By map" << endl;
-//for (auto c : dataByLine) {
-//	cout << c.first << "    -->   " << c.second << endl;;
-//}
-
-// dont need for llop for this
-
-	cout << "Data By multimap" << endl;
-
+	vector<pair<wstring, wstring>> vec;
 	int xt = 0;
 	for (auto it = dataByMultiMap.begin(); it != dataByMultiMap.end(); )
 	{
 		if (xt == 0)
 			xt = (*it).first;
-		//	cout << (*it).first << (*it).second<< endl;
-
-
-
-
 		for (auto c : dataByMultiMap) {
-			// loop thorugh my values
-	//string path;
 			wstring path;
-			bool commaSwitch = false;
-			bool pathGood = false;
-			wstring errorCode = L"";
+			wstring params = L"";
 			wstring timming = L"";
 			wstring temp;
+			PROCESS_INFORMATION pi{0};
+			bool spacess = false;
 			if (c.first == xt) {
-
-
-	
 				for (char x : (*it).second) {
 
 					if (x == ',') {
-						if (path == L"") {
+						if (path == L"") 
 							path = temp;
-						}
-						/*else  if (errorCode == "") {
-							errorCode = temp;
-						}
-						else if (timming == "") {
-							timming = temp;
-						}*/
 						temp = L"";
-
-
 					}
 					else if (isspace(x)) {
-						//if (path != L"" &&errorCode == L"") {
-						//	errorCode = temp;
-						//}
-						//
-						//temp = L"";
-
+						if (path != L"" && temp == L"" && !spacess) {
+							spacess = true;
+						}
+						else if (spacess && path != L"") {
+							temp += x;
+						}
+						else if (temp != L"" && path != L"") {
+							temp += x;
+						}
 					}
 					else {
 						temp += x;
-
 					}
 				}
-				// not sure about it yet
-				if (path != L"" && errorCode == L"") {
-					errorCode = temp;
+				if (path != L"" && params == L"") {
+					params = temp;
 				}
-
-				wcout << "Path " << path << endl;
-				wcout << "param " << errorCode << endl;
-				cout << "create_process() launching for group" << xt << endl;
-
-				//	wstring params = L"C:/setup.log";
-				wstring command = path + L" " + errorCode;  // instread of error code to params
-
-				launch_using_create_process(command);
-
-
-
-
-
-
+				wstring command = path + L" " + params;  
+				vec.push_back(pair(path, params));
 				it = dataByMultiMap.erase(it);
 				break;
 			}
 			else {
-				//xt = 0;
-				cout << "Ending_Process()  for group" << xt << endl;
-				// end of create process
+				MapPair.insert(pair(xt, vec));
+				vec.clear();
 				if (c.first == (*it).first) {
 					xt = c.first;
 					for (char x : (*it).second) {
 
 						if (x == ',') {
-							if (path == L"") {
+							if (path == L"") 
 								path = temp;
-							}
-							/*else  if (errorCode == "") {
-								errorCode = temp;
-							}
-							else if (timming == "") {
-								timming = temp;
-							}*/
+							
 							temp = L"";
-
-
 						}
 						else if (isspace(x)) {
-							//if (path != L"" &&errorCode == L"") {
-							//	errorCode = temp;
-							//}
-							//
-							//temp = L"";
+							if (path != L"" && temp == L"" && !spacess) {
+								spacess = true;
+							}
+							else if (spacess && path != L"") {
+								temp += x;
+							}
+							else if (temp != L"" && path != L"") {
+								temp += x;
+							}
 
 						}
 						else {
@@ -325,143 +263,25 @@ int main(int argc, char* argv[]) {
 
 						}
 					}
-					// not sure about it yet
-					if (path != L"" && errorCode == L"") {
-						errorCode = temp;
+					if (path != L"" && params == L"") {
+						params = temp;
 					}
-
-					wcout << "Path " << path << endl;
-					wcout << "param " << errorCode << endl;
-
-					// apply the same logic now
-// createProcess	
-					cout << "create_process() launching for group" << xt << endl;
-					wstring command = path + L" " + errorCode;  // instread of error code to params
-
-					launch_using_create_process(command);
-
+					vec.push_back(pair(path, params));
 					it = dataByMultiMap.erase(it);
 					break;
-
 				}
 			}
 		}
-
-
-
-
-
-
-
-
-		//auto it = dataByMultiMap.begin();
-		/*while(it != dataByMultiMap.end())
-		{
-				cout << (*it).first << endl;
-		//*/	//for (auto x : dataByMultiMap) 
-		//	{
-		//		if ((*it).first == x.first) {
-		//			cout << "create_process() launching for group"<< (*it).first << endl;
-		//			// loop thorugh my values
-		//			string path;
-		//			bool commaSwitch = false;
-		//			bool pathGood = false;
-		//			string errorCode = "";
-		//			string timming = "";
-		//			string temp = "";
-		//			for (char x : x.second) {
-		//			
-		//				if (x == ',') {
-		//					if (path == "") {
-		//						path = temp;
-		//					}
-		//					else  if(errorCode == ""){
-		//						errorCode = temp;
-		//					}
-		//					else if (timming == "") {
-		//						timming = temp;
-		//					}
-		//					temp = "";
-
-
-		//				}
-		//				else {
-		//					temp = x;
-		//				}
-		//			}
-
-
-
-
-		//			wstring application = L"\"c:/windows/notepad\""; // ShellError
-		//			wstring params = L"C:/setup.log";  // 50 2000
-		//			wstring command = application + L" " + params;
-
-					//STARTUPINFO sinfo = { 0 };
-					//sinfo.cb = sizeof(STARTUPINFO);
-					//PROCESS_INFORMATION pi = { 0 };
-					//std::uint32_t const CP_MAX_COMMANDLINE = 32768;
-					//try {
-
-					//	// this one creates a realy big memory block to compensate if the lenght of the command increases
-					//	wchar_t* commandline = new wchar_t[CP_MAX_COMMANDLINE];
-					//	wcsncpy_s(commandline, CP_MAX_COMMANDLINE, command.c_str(), command.size() + 1);   // wcscpy wide cstr number copy safe version// hope that the thing you are fill in is big enough
-					//	// coz we need terminating zero. 
-
-					//	// CreateProcessW is asci code to build issue you can also use CreateProcess() also. 
-					//	auto res = CreateProcess(
-					//		NULL,//application name is null since its provided by next param(be carefull doesnt use path, so needs full freaking path whole path)
-					//		commandline,  // could expand
-					//		NULL,  // same as parent
-					//		NULL,
-					//		false,  // so if one closes the other could open, one security breaches the other one could shut it down 
-					//		0,   // normal
-					//		NULL,  // if null takes what ever it has in enviourment variables// you can also fake env with better or less options
-					//		NULL,  // working directory
-					//		&sinfo,
-					//		&pi
-					//	);
-
-					//	if (res == 0) {
-					//		cerr << "Error : " << GetLastError() << endl;
-					//	}
-
-					//	delete[] commandline;
-					//}
-					//catch (std::bad_alloc) {
-					//	wcerr << L"Insufficient memroy to launch application \n";
-					//	return;
-					//}
-
-					// after creating the process delay it for the time
-			/*	}
-			}*/
-
-
-
-			// exit createprocess here
 	}
-
-	// once loop finish end again
-
-
-
-	// 2  Read input
-	// 2  comma sepreateed
-	// 2  Read parameter
-	// 2  once '\n' end of line.
-
-
-
-
-
-
-
-
-
-	//
-
-
+	MapPair.insert(pair(xt, vec));
+	vec.clear();
+	for (auto x : MapPair) {
+		wcout << x.first <<endl;
+		for (auto xt : x.second) {
+			wcout << xt.first << " -- " << xt.second << endl;
+		}
+		cout << endl;
+	}
 
 	return 0;
 }
