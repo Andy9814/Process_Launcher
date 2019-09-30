@@ -6,6 +6,7 @@
 #include <map>
 #include<sstream>
 #include<iostream>
+#include"Process.h"
 //#define CreateProcess CreateProcessW;
 using namespace std;
 
@@ -16,8 +17,6 @@ void report() {
 
 
 }
-
-
 
 multimap<int, string> parseFile(ifstream &infile) {
 	string line = "";
@@ -80,80 +79,106 @@ void terminateApplication( PROCESS_INFORMATION &pi) {
 }
 
 /** CreateProcess allows full access to the Win32 OS. */
-PROCESS_INFORMATION launch_using_create_process(wstring command) {
-	//wstring application = L"\"C:/windows/notepad\"";
-	//wstring params = L"";
-	//wstring command = application + L" " + params;
+//PROCESS_INFORMATION launch_using_create_process(wstring command) {
+//void 	launch_using_create_process (map<int, vector<pair<wstring,wstring>>> data)
+void 	launch_using_create_process (map<int, vector<MyProcess*>> data)
+{
+	
+	for (auto groups : data)//group
+	{
+		for (auto groupData : groups.second)//vector // MyProcess
+		{
+			//MyProcess* x = new MyProcess();
+			wstring command = groupData->path + L" " + groupData->params;
+			//cout << "CreateProcess() launching" << endl;
+			STARTUPINFO sinfo = { 0 };
+			sinfo.cb = sizeof(STARTUPINFO);
+			PROCESS_INFORMATION pi = { 0 };
+			unsigned long const CP_MAX_COMMANDLINE = 32768;
+			try {
+				wchar_t* commandline = new wchar_t[CP_MAX_COMMANDLINE];
+				wcsncpy_s(commandline, CP_MAX_COMMANDLINE, command.c_str(), command.size() + 1);
+				auto res = CreateProcess(NULL, // application name is null since provided in commandline (doesn't use PATH)
+					commandline, // contains application name + params
+					NULL,		// same security as parent
+					NULL,
+					false,
+					CREATE_NEW_CONSOLE, // create new console
+					NULL,
+					NULL, // same current directory as parent
+					&sinfo,		// startup options
+					&pi		// process information
+				);
 
-	cout << "CreateProcess() launching" << endl;
+				if (res == 0) {
+					cerr << "Error: " << GetLastError() << endl;
+					return;
+				}
 
-	STARTUPINFO sinfo = {0};
-	sinfo.cb = sizeof(STARTUPINFO);
-	PROCESS_INFORMATION pi = { 0 };
-	unsigned long const CP_MAX_COMMANDLINE = 32768;
-	try {
-		wchar_t* commandline = new wchar_t[CP_MAX_COMMANDLINE];
+				delete[] commandline;
+			}
+			catch (std::bad_alloc&) {
+				wcerr << L"Insufficient memory to launch application" << endl;
+				return;
+			}
+			DWORD exitCode;
+			if (WAIT_FAILED == WaitForSingleObject(pi.hProcess, INFINITE))
+				cerr << "Failure waiting for process to terminate" << endl;
+			GetExitCodeProcess(pi.hProcess, &exitCode);
+			//cout << "Process terminated with exit code = " << exitCode << endl; 
 
-		wcsncpy_s(commandline, CP_MAX_COMMANDLINE, command.c_str(), command.size() + 1);
-		auto res = CreateProcess(NULL, // application name is null since provided in commandline (doesn't use PATH)
-			commandline, // contains application name + params
-			NULL,		// same security as parent
-			NULL,
-			false,
-			CREATE_NEW_CONSOLE, // create new console
-			NULL,
-			NULL, // same current directory as parent
-			&sinfo,		// startup options
-			&pi		// process information
-		);
+			groupData->exitCode = exitCode;
 
-		if (res == 0) {
-			cerr << "Error: " << GetLastError() << endl;
-		//	return;
+			FILETIME creationTime, exitTime, kernelTime, userTime;
+			GetProcessTimes(pi.hProcess, &creationTime, &exitTime, &kernelTime, &userTime);
+			SYSTEMTIME kTime,uTime;
+			::FileTimeToSystemTime(&kernelTime, &kTime);
+			::FileTimeToSystemTime(&userTime, &uTime);
+
+			groupData->kTime = kTime;
+			groupData->uTime= uTime;
+		/*	cout << "Kernel Time = " << kTime.wHour << ":" << kTime.wMinute << ":" << kTime.wSecond << "." << kTime.wMilliseconds << "    ";
+			cout << "User Time " << uTime.wHour << ":" << uTime.wMinute << ":" << uTime.wSecond << "." << uTime.wMilliseconds <<endl;
+		*/	
+		//	cout << "Kernel Time = " << groupData.kTime.wHour << ":" << groupData.kTime.wMinute << ":" << groupData.kTime.wSecond << "." << groupData.kTime.wMilliseconds << "    ";
+		//	cout << "User Time " << groupData.uTime.wHour << ":" << groupData.uTime.wMinute << ":" << groupData.uTime.wSecond << "." << groupData.uTime.wMilliseconds << endl;
 		}
 
-		delete[] commandline;
+		int i = 0;
+		
+		for (auto groupDatas : groups.second)
+		{
+			if(i == 0)
+				wcout << "Group:" << groupDatas->groupKey << endl;
+			wcout << "K:" << groupDatas->kTime.wMilliseconds << " " << "U:" << groupDatas->uTime.wMilliseconds << " E:"
+				<< groupDatas->exitCode << " G:" << groupDatas->groupKey << " " <<
+				groupDatas->path << " " << groupDatas->params << endl;
+			i++;
+		}
+		cout << endl;
 	}
-	catch (std::bad_alloc&) {
-		wcerr << L"Insufficient memory to launch application" << endl;
-	//	return;
-	}
 
 
-	DWORD exitCode = 0;
-	if (WAIT_FAILED == WaitForSingleObject(pi.hProcess, INFINITE))
-		cerr << "Failure waiting for process to terminate" << endl;
-	GetExitCodeProcess(pi.hProcess, &exitCode);
-	//cout << GetExitCodeProcess(pi.hProcess, &exitCode) << endl;
-	cout << "Process terminated with exit code = " << exitCode << endl;
-	
-	return pi;
 
 
-	//cout << "Process terminated with exit code = " << exitCode << endl;
+}
 
-	////// output times
-	//FILETIME creationTime, exitTime, kernelTime, userTime;
-	//GetProcessTimes(pi.hProcess, &creationTime, &exitTime, &kernelTime, &userTime);
-	//SYSTEMTIME kTime;
-	//::FileTimeToSystemTime(&kernelTime, &kTime);
-	//cout << "Kernel Time = " << kTime.wHour << ":" << kTime.wMinute << ":" << kTime.wSecond << "." << kTime.wMilliseconds << endl;
+void errorReport(map<int, vector<MyProcess*>> data) {
+	cout << "\nErrors" << endl;
+	for(auto groupData : data)
+		for(auto dd: groupData.second)
+			if (dd->exitCode != 0) {
+				wcout << "G#: " << dd->groupKey << " Command: " << dd->path << " Params : " << dd->params << endl;
+				wcout << " ---> Error = " << dd->exitCode << endl;
+			}
 
-	//unsigned long long elapsedTicks = *reinterpret_cast<unsigned long long*>(&exitTime) -
-	//	*reinterpret_cast<unsigned long long*>(&creationTime);
-
-	//cout << "Elapsed Ticks = " << elapsedTicks << endl;
-	//cout << "Elapsed Time = " << elapsedTicks / 10000000.0 << endl;
-
-	//CloseHandle(pi.hThread);
-	//CloseHandle(pi.hProcess);
-
-	//cout << "CreateProcess() landing" << endl;
 }
 
 int main(int argc, char* argv[]) {
 	multimap <int, string> dataByMultiMap;
 	map<int, vector<pair<wstring, wstring>>> MapPair;
+	map<int, vector<MyProcess*>> processessmap;
+
 	bool checkOut = false;
 	// if Argc.size = 1
 	if (argc > 1) {
@@ -190,6 +215,8 @@ int main(int argc, char* argv[]) {
 		cout << "ERROR:  File \"" << argv[1] << "\"  does not exist.";
 	}
 	vector<pair<wstring, wstring>> vec;
+	vector<MyProcess*> vecProcess;
+
 	int xt = 0;
 	for (auto it = dataByMultiMap.begin(); it != dataByMultiMap.end(); )
 	{
@@ -230,12 +257,23 @@ int main(int argc, char* argv[]) {
 				}
 				wstring command = path + L" " + params;  
 				vec.push_back(pair(path, params));
+	// Adding the class
+				MyProcess *p = new MyProcess();
+				p->groupKey = xt;
+				p->params = params;
+				p->path = path;
+				vecProcess.push_back(p);
+	// Adding the class
+
 				it = dataByMultiMap.erase(it);
 				break;
 			}
 			else {
 				MapPair.insert(pair(xt, vec));
+				
+				processessmap.insert(pair(xt, vecProcess));
 				vec.clear();
+				vecProcess.clear();
 				if (c.first == (*it).first) {
 					xt = c.first;
 					for (char x : (*it).second) {
@@ -267,21 +305,27 @@ int main(int argc, char* argv[]) {
 						params = temp;
 					}
 					vec.push_back(pair(path, params));
+					// Adding the class
+					MyProcess* p = new MyProcess();
+					p->groupKey = xt;
+					p->params = params;
+					p->path = path;
+					vecProcess.push_back(p);
+					// Adding the class
 					it = dataByMultiMap.erase(it);
 					break;
 				}
 			}
 		}
 	}
-	MapPair.insert(pair(xt, vec));
-	vec.clear();
-	for (auto x : MapPair) {
-		wcout << x.first <<endl;
-		for (auto xt : x.second) {
-			wcout << xt.first << " -- " << xt.second << endl;
-		}
-		cout << endl;
-	}
 
+	// ready
+	MapPair.insert(pair(xt, vec));
+	processessmap.insert(pair(xt, vecProcess));
+	vecProcess.clear();
+	vec.clear();
+	//launch_using_create_process(MapPair);
+	launch_using_create_process(processessmap);
+	errorReport(processessmap);
 	return 0;
 }
