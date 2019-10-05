@@ -1,4 +1,5 @@
-1,ShellError,
+1,notepad,
+ 1 ,  mspaint,
  1 ,  ShellError, 0 0 default
 2,ShellError   ,42
 3,ShellError,43 5000
